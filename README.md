@@ -1,122 +1,190 @@
-# RutaLimpia
+# ♻️ RutaLimpia
 
-Proyecto en equipo para gestionar solicitudes de retiro de residuos a domicilio, incluidos residuos tóxicos y otros tipos. El backend organiza las solicitudes, los usuarios, las rutas de retiro y la flota de camiones.
+Backend de un proyecto desarrollado en equipo para gestionar solicitudes de retiro de residuos a domicilio, desde la solicitud del vecino hasta la asignación de una ruta y el registro del resultado del retiro.
 
-**Java 21 · Spring Boot · MySQL · Docker Compose · APIs REST**
+**Java 21 · Spring Boot · Spring Security · JWT · MySQL · Docker Compose · OpenFeign**
 
-## Equipo y participación
+## 🤝 Equipo y créditos
 
-- **[Francisco Vallverdú](https://github.com/frvallverdu)** — integrante y coautor del proyecto; desarrolló los microservicios **autenticacion** y **solicitudes**
+- **[Francisco Vallverdú](https://github.com/frvallverdu)** — integrante y coautor; desarrollo los microservicios **autenticacionMS** y **solicitudesMS**
 - **[Diego Ramos](https://github.com/Diego-Git09)** — integrante y coautor; desarrolló los microservicios **rutasMS** y **flotaMS**.
 
-Esta presentación conserva el reconocimiento de ambos integrantes. No se atribuye el proyecto completo a una sola persona.
+Repositorio de origen: [frvallverdu/RutaLimpia](https://github.com/frvallverdu/RutaLimpia).
 
-## Mi aporte: rutas y flota
+Esta copia presenta el proyecto como parte de mi portafolio y conserva los créditos del trabajo compartido. El repositorio de origen puede requerir permisos de acceso.
 
-### Rutas
+## 👨‍💻 Mi participación
 
-- Registro, consulta, actualización y eliminación de rutas.
+Mi aporte al proyecto original se concentró en rutas y flota.
+
+### Gestión de rutas
+
+- Creación, consulta, actualización y eliminación de rutas.
 - Consulta de rutas por camión y conductor.
-- Gestión de paradas y registro de sus resultados.
-- Comunicación con solicitudes mediante OpenFeign para informar asignaciones y resultados.
+- Control de asignaciones duplicadas por fecha.
+- Registro y consulta de paradas.
+- Registro de retiros exitosos y fallidos.
+- Comunicación con el microservicio de solicitudes mediante OpenFeign.
+- Restricción de eliminación de rutas que tienen paradas.
 
-### Flota
+### Gestión de flota
 
 - Registro, consulta y actualización de camiones.
-- Consulta de camiones disponibles y cambios de estado.
-- Validaciones de patente, capacidad y estados permitidos.
-- Restricciones como impedir eliminar un camión que está en ruta.
+- Consulta de camiones disponibles.
+- Cambios de estado: `DISPONIBLE`, `EN_RUTA` y `EN_MANTENCION`.
+- Validaciones de patente, capacidad y estado.
+- Rechazo de patentes duplicadas.
+- Restricción de eliminación de camiones que están en ruta.
 
-Se comprobó el arranque de los cuatro servicios con MySQL y un flujo de retiro con datos ficticios.
+### Mejoras posteriores en esta copia
 
-## Servicios incluidos
+- Comprobación de que cada vecino solo pueda crear y consultar sus propias solicitudes.
+- Conservación de los códigos HTTP correspondientes a errores de datos, permisos y recursos inexistentes.
+- Ampliación del flujo de pruebas con datos ficticios.
 
-| Servicio | Responsabilidad | Puerto local del contenedor |
+## 🧩 Microservicios
+
+| Microservicio | Responsabilidad | Puerto |
 |---|---|---|
-| autenticacionMS | Usuarios, autenticación y generación de tokens JWT | 8086 |
-| solicitudesMS | Solicitudes y tipos de residuos | 8084 |
-| flotaMS | Camiones, disponibilidad y estados | 8085 |
-| rutasMS | Rutas, paradas y comunicación con solicitudes | 8087 |
+| `autenticacionMS` | Registro de vecinos, inicio de sesión y credenciales JWT | 8086 |
+| `solicitudesMS` | Solicitudes de retiro, categorías de residuos y estados | 8084 |
+| `flotaMS` | Camiones, disponibilidad y estados de la flota | 8085 |
+| `rutasMS` | Rutas, paradas y resultados de los retiros | 8087 |
 
-Cada servicio utiliza una base MySQL independiente en la configuración de Docker Compose. El repositorio revisado contiene el backend; no incluye una aplicación web de cliente.
+Cada microservicio utiliza una base de datos MySQL independiente.
 
-## Arquitectura presente en el código
+Este repositorio contiene el backend y sus APIs REST. Próximamente incluiremos una Interfaz Web.
+
+## 🔄 Flujo de un retiro
+
+1. Un vecino se registra e inicia sesión.
+2. Crea una solicitud indicando dirección, tipo de residuo, cantidad y horario preferido.
+3. Se registra una ruta con un camión y un conductor.
+4. La solicitud se incorpora como parada de la ruta.
+5. Rutas comunica la asignación a Solicitudes.
+6. Se registra el resultado del retiro y se actualiza la solicitud.
+
+| Acción | Estado de la solicitud |
+|---|---|
+| Crear solicitud | `PENDIENTE` |
+| Asignar una parada | `ASIGNADA` |
+| Registrar retiro exitoso | `REALIZADA` |
+| Registrar retiro fallido con motivo | `FALLIDA` |
+
+## 🏗️ Arquitectura
 
 ```mermaid
 flowchart LR
-    Cliente[Cliente de API] --> Auth[Autenticación y usuarios]
+    Cliente[Cliente de API] --> Auth[Autenticación]
     Cliente --> Solicitudes[Solicitudes]
-    Cliente --> Rutas[Rutas y paradas]
     Cliente --> Flota[Flota]
+    Cliente --> Rutas[Rutas y paradas]
+
     Rutas -->|OpenFeign| Solicitudes
-    Auth --> DBAuth[(MySQL usuarios)]
-    Solicitudes --> DBSolicitudes[(MySQL solicitudes)]
-    Rutas --> DBRutas[(MySQL rutas)]
-    Flota --> DBFlota[(MySQL flota)]
+
+    Auth --> DBAuth[(MySQL Autenticación)]
+    Solicitudes --> DBSolicitudes[(MySQL Solicitudes)]
+    Flota --> DBFlota[(MySQL Flota)]
+    Rutas --> DBRutas[(MySQL Rutas)]
 ```
 
-## Preparación local
+## 🚀 Ejecución local
 
-Necesitas Docker con Docker Compose. Para generar la configuración local con el script incluido también necesitas Python 3. Para compilar fuera de Docker necesitas Java 21 y Maven, o el wrapper de cada servicio.
+### Requisitos
 
-1. Abre una terminal en la carpeta del proyecto.
-2. Genera un archivo `.env` con valores nuevos para tu equipo:
+- Docker con Docker Compose.
+- Python 3 para preparar la configuración y ejecutar la demostración.
+- Conexión a internet para descargar imágenes y dependencias durante la primera construcción.
+
+Para compilar fuera de Docker se necesita Java 21 y Maven, o el wrapper incluido en cada microservicio.
+
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/Diego-Git09/RutaLimpia.git
+cd RutaLimpia
+```
+
+### 2. Preparar la configuración
 
 ```bash
 python3 herramientas/preparar_entorno.py
 ```
 
-El script no muestra los valores generados y no sobrescribe un `.env` existente. `.env.example` documenta los nombres necesarios, pero sus marcadores no son claves utilizables.
+El script crea un archivo `.env` con claves aleatorias para el entorno local. No muestra sus valores ni sobrescribe un archivo existente.
 
-3. Construye e inicia los servicios:
+`.env` está excluido de Git. `.env.example` contiene únicamente los nombres de las variables y valores de ejemplo que deben reemplazarse.
 
-```bash
-docker compose up --build
-```
-
-La configuración está orientada a desarrollo local.
-
-Los puertos deben estar libres antes de arrancar.
-
-4. Para detener los contenedores conservando los datos:
+### 3. Construir e iniciar los servicios
 
 ```bash
-docker compose down
+docker compose up -d --build
 ```
 
-## Algunas rutas de API
+La primera construcción puede tardar mientras se descargan las dependencias.
 
-| Método | Ruta | Servicio |
-|---|---|---|
-| POST | `/api/auth/login` | Autenticación |
-| POST | `/api/usuarios/vecinos` | Usuarios |
-| GET, POST | `/api/camiones` | Flota |
-| GET | `/api/camiones/disponibles` | Flota |
-| PATCH | `/api/camiones/{id}/estado` | Flota |
-| GET, POST | `/api/rutas` | Rutas |
-| GET | `/api/rutas/camion/{idCamion}` | Rutas |
-| GET | `/api/rutas/conductor/{idConductor}` | Rutas |
-| GET, POST | `/api/rutas/{idRuta}/paradas` | Paradas |
-| PATCH | `/api/rutas/{idRuta}/paradas/{idParada}/resultado` | Paradas |
+La configuración utiliza el nombre `rutalimpia-portafolio` para sus contenedores y volúmenes. Los puertos configurados deben estar disponibles.
 
-Consulta los límites antes de exponer los servicios fuera de un entorno local.
-
-## Compilación y pruebas
-
-Para compilar un servicio, por ejemplo flota:
+### 4. Consultar el estado
 
 ```bash
-cd flotaMS
-./mvnw -DskipTests package
+docker compose ps
 ```
 
-Con los contenedores encendidos, ejecuta desde la carpeta raíz:
+### 5. Ejecutar la demostración
 
 ```bash
 python3 herramientas/probar_flujo.py
 ```
 
-## Configuración y datos
+### 6. Detener los servicios
 
+```bash
+docker compose down
+```
 
-Los SQL incluidos cargan roles y categorías de residuos; no contienen una cartera de clientes o solicitudes reales. No publiques valores de claves JWT, contraseñas ni datos personales al añadir ejemplos.
+Este comando conserva los datos almacenados en los volúmenes.
+
+## 🧪 Pruebas del flujo
+
+Se comprobaron, entre otros casos:
+
+- Registro e inicio de sesión de vecinos.
+- Rechazo de correos duplicados.
+- Acceso únicamente a las solicitudes propias.
+- Rechazo de credenciales inválidas o alteradas.
+- Rechazo de cantidades negativas y categorías inexistentes.
+- Validaciones de camiones y asignaciones de rutas.
+- Comunicación entre Rutas y Solicitudes.
+- Registro de retiros exitosos y fallidos.
+- Rechazo de resultados duplicados.
+- Restricciones de eliminación de rutas y camiones.
+
+Cada ejecución crea nuevos datos ficticios y los conserva para poder revisarlos.
+
+Como todavía no existe una API para registrar conductores, la demostración cambia mediante SQL el rol de un usuario ficticio creado por el propio script. Después obtiene su credencial mediante el inicio de sesión normal. Este paso requiere acceso a Docker.
+
+Las comprobaciones cubren el recorrido de demostración; no equivalen a cobertura completa de todas las reglas de negocio.
+
+## 📂 Organización
+
+```text
+RutaLimpia/
+├── autenticacionMS/
+├── solicitudesMS/
+├── flotaMS/
+├── rutasMS/
+├── herramientas/
+│   ├── preparar_entorno.py
+│   └── probar_flujo.py
+├── documentacion/
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
+
+## 📌 Alcance actual
+
+El proyecto está preparado para una demostración local de sus APIs.
+
+La copia de portafolio excluye las claves y el historial Git del repositorio original. Los ejemplos y las pruebas utilizan datos ficticios.

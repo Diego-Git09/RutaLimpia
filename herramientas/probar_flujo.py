@@ -4,6 +4,7 @@ Crea registros nuevos en cada ejecución; conserva los datos para inspeccionarlo
 Promueve exclusivamente su usuario ficticio a CONDUCTOR mediante SQL porque
 no existe un endpoint de alta de conductores. Las contraseñas y JWT no se imprimen.
 """
+import base64
 import json
 from pathlib import Path
 import secrets
@@ -91,9 +92,34 @@ def ejecutar():
               'cantidadKg': 10}
     solicitud = pedir(8084, 'POST', '/api/solicitudes', cuerpo, token, 201)
     verificar(solicitud['estado'] == 'PENDIENTE', 'Solicitud creada en estado PENDIENTE')
+    pedir(8084, 'POST', '/api/solicitudes', {**cuerpo, 'cantidadKg': -1}, token, 400)
+    verificar(True, 'Una solicitud con cantidad negativa conserva el error HTTP 400')
+    pedir(8084, 'POST', '/api/solicitudes', {**cuerpo, 'tipoResiduoId': 999999999}, token, 404)
+    verificar(True, 'Un tipo de residuo inexistente conserva el error HTTP 404')
+    pedir(8084, 'GET', '/api/solicitudes/tipos-residuo', token='token-invalido', esperado=401)
+    verificar(True, 'Un token inválido recibe HTTP 401')
+    otro = {**vecino, 'rut': 'O' + sufijo,
+            'email': f'otro-{sufijo}@example.invalid'}
+    segundo = pedir(8086, 'POST', '/api/usuarios/vecinos', otro, esperado=201)
+    otro_token = pedir(8086, 'POST', '/api/auth/login',
+                       {'email': otro['email'], 'contrasena': clave})['token']
+    pedir(8084, 'POST', '/api/solicitudes', cuerpo, otro_token, 403)
+    verificar(True, 'Un vecino no puede crear solicitudes a nombre de otro')
+    pedir(8084, 'GET', f"/api/solicitudes/vecino/{creado['id']}",
+          token=otro_token, esperado=403)
+    verificar(True, 'Un vecino no puede consultar las solicitudes de otro')
+    propias = pedir(8084, 'GET', f"/api/solicitudes/vecino/{segundo['id']}", token=otro_token)
+    verificar(propias == [], 'El segundo vecino puede consultar su lista vacía')
+    cabecera, carga, firma = otro_token.split('.')
+    claims = json.loads(base64.urlsafe_b64decode(carga + '=' * (-len(carga) % 4)))
+    claims['usuarioId'] = creado['id']
+    carga_falsa = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b'=').decode()
+    alterado = '.'.join([cabecera, carga_falsa, firma])
+    pedir(8084, 'GET', f"/api/solicitudes/vecino/{creado['id']}", token=alterado, esperado=401)
+    verificar(True, 'Cambiar el usuario dentro del token invalida su firma y se rechaza')
     folio = solicitud['folio']
-    pedir(8084, 'POST', f'/api/solicitudes/{folio}/asignacion', token=token, esperado=401)
-    verificar(True, 'Un vecino no puede asignar retiros (respuesta actual: HTTP 401)')
+    pedir(8084, 'POST', f'/api/solicitudes/{folio}/asignacion', token=token, esperado=403)
+    verificar(True, 'Un vecino sin permiso recibe HTTP 403 al intentar asignar retiros')
     camion = pedir(8085, 'POST', '/api/camiones',
                    {'patente': 'DEMO-' + sufijo, 'capacidad': 1000, 'estado': 'DISPONIBLE'},
                    esperado=201)
@@ -119,7 +145,7 @@ def ejecutar():
     conductor = pedir(8086, 'POST', '/api/auth/login',
                       {'email': vecino['email'], 'contrasena': clave})['token']
     parada_datos = {'folio': folio, 'direccion': cuerpo['direccion'], 'orden': 1}
-    pedir(8087, 'POST', f'/api/rutas/{rid}/paradas', parada_datos, token, 401)
+    pedir(8087, 'POST', f'/api/rutas/{rid}/paradas', parada_datos, token, 403)
     verificar(pedir(8087, 'GET', f'/api/rutas/{rid}/paradas') == [],
               'Asignación con rol incorrecto revierte la parada local')
     parada = pedir(8087, 'POST', f'/api/rutas/{rid}/paradas', parada_datos, conductor, 201)
@@ -137,6 +163,23 @@ def ejecutar():
               'Retiro EXITOSO actualiza la solicitud a REALIZADA')
     pedir(8087, 'PATCH', resultado_url, {'estado': 'EXITOSO'}, conductor, 409)
     verificar(True, 'Se rechaza registrar dos veces el resultado')
+    segunda = pedir(8084, 'POST', '/api/solicitudes', cuerpo, token, 201)
+    parada_fallida = pedir(8087, 'POST', f'/api/rutas/{rid}/paradas',
+                           {'folio': segunda['folio'], 'direccion': cuerpo['direccion'], 'orden': 2},
+                           conductor, 201)
+    url_fallida = f"/api/rutas/{rid}/paradas/{parada_fallida['idParada']}/resultado"
+    pedir(8087, 'PATCH', url_fallida, {'estado': 'FALLIDO'}, conductor, 400)
+    paradas = pedir(8087, 'GET', f'/api/rutas/{rid}/paradas')
+    listado = pedir(8084, 'GET', f"/api/solicitudes/vecino/{creado['id']}", token=token)
+    verificar(next(x for x in paradas if x['idParada'] == parada_fallida['idParada'])['estado'] == 'PENDIENTE'
+              and next(x for x in listado if x['folio'] == segunda['folio'])['estado'] == 'ASIGNADA',
+              'Un retiro fallido sin motivo se rechaza sin cambiar los estados')
+    final_fallido = pedir(8087, 'PATCH', url_fallida,
+                          {'estado': 'FALLIDO', 'observacion': 'No había nadie en el domicilio ficticio'}, conductor)
+    listado = pedir(8084, 'GET', f"/api/solicitudes/vecino/{creado['id']}", token=token)
+    verificar(final_fallido['estado'] == 'FALLIDO' and
+              next(x for x in listado if x['folio'] == segunda['folio'])['estado'] == 'FALLIDA',
+              'Retiro FALLIDO con motivo actualiza la solicitud a FALLIDA')
     pedir(8085, 'PATCH', f'/api/camiones/{cid}/estado', {'estado': 'EN_RUTA'})
     pedir(8085, 'DELETE', f'/api/camiones/{cid}', esperado=409)
     verificar(True, 'Se impide eliminar un camión EN_RUTA')

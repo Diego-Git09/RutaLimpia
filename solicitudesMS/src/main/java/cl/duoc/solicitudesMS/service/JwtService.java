@@ -40,6 +40,10 @@ public class JwtService {
         return extraerClaims(token).get("rol", String.class);
     }
 
+    public Long extraerUsuarioId(String token) {
+        return extraerClaims(token).get("usuarioId", Long.class);
+    }
+
     public boolean validarToken(String token, String email) {
         try {
             return extraerClaims(token).getSubject().equals(email);

@@ -9,6 +9,8 @@ import cl.duoc.solicitudesMS.service.SolicitudRetiroService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,17 +27,32 @@ public class SolicitudRetiroController {
 
     @PostMapping
     public ResponseEntity<SolicitudCreadaDTO> crear(
-            @Valid @RequestBody CrearSolicitudDTO datos
+            @Valid @RequestBody CrearSolicitudDTO datos,
+            Authentication authentication
     ) {
+        verificarPropietario(datos.getVecinoId(), authentication);
         SolicitudCreadaDTO respuesta = service.crearSolicitud(datos);
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 
     @GetMapping("/vecino/{vecinoId}")
     public List<SolicitudConsultaDTO> consultarPorVecino(
-            @PathVariable String vecinoId
+            @PathVariable String vecinoId,
+            Authentication authentication
     ) {
+        verificarPropietario(vecinoId, authentication);
         return service.consultarSolicitudes(vecinoId);
+    }
+
+    private void verificarPropietario(String vecinoId, Authentication authentication) {
+        if (authentication == null || !(authentication.getDetails() instanceof Long usuarioId)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Inicia sesión de nuevo para identificar tu usuario");
+        }
+        if (!usuarioId.toString().equals(vecinoId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Solo puedes acceder a tus propias solicitudes");
+        }
     }
 
     @GetMapping("/tipos-residuo")

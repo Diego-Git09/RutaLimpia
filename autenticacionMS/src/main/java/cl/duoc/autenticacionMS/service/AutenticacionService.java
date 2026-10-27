@@ -49,7 +49,8 @@ public class AutenticacionService {
 
         String token = jwtService.generarToken(
                 usuario.getEmail(),
-                usuario.getRol().getNombre()
+                usuario.getRol().getNombre(),
+                usuario.getId()
         );
 
         return new RespuestaLoginDTO(token, "Bearer");

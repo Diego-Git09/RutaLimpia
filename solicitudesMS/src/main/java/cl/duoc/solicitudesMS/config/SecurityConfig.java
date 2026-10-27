@@ -1,6 +1,7 @@
 package cl.duoc.solicitudesMS.config;
 
 import cl.duoc.solicitudesMS.service.JwtService;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +31,8 @@ public class SecurityConfig {
                         )
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // Conserva el estado original al procesar un error HTTP.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/solicitudes"

@@ -43,6 +43,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String email = jwtService.extraerEmail(token);
             String rol = jwtService.extraerRol(token);
+            Long usuarioId = jwtService.extraerUsuarioId(token);
+            if (usuarioId == null || usuarioId <= 0) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
 
             if (jwtService.validarToken(token, email)
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -54,6 +59,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 List.of(new SimpleGrantedAuthority("ROLE_" + rol))
                         );
 
+                // Este identificador procede del token firmado, no de la petición.
+                autenticacion.setDetails(usuarioId);
                 SecurityContextHolder.getContext().setAuthentication(autenticacion);
             }
         } catch (JwtException | IllegalArgumentException e) {

@@ -20,7 +20,7 @@ El archivo .env aparece en el historial del repositorio original; por ello la co
 - El generador de .env se probó en una carpeta temporal. Produce una clave JWT Base64 de 32 bytes y una contraseña aleatoria, crea el archivo con permisos 0600 y rechaza sobrescribir uno existente. No muestra los valores generados.
 - Para ejecutar las pruebas se generó un .env local con claves nuevas, excluido por .gitignore. .env.example contiene únicamente marcadores. La copia no incorpora el historial Git original. También se excluyeron .continue y las cachés de Python.
 
-## Pruebas integradas
+## Primera prueba integrada
 
 Las cuatro pruebas contextLoads se ejecutaron con Maven y MySQL: 4 casos, 0 fallos, 0 errores y 0 omitidos. Los registros locales están en /tmp/rutalimpia-<servicio>-contexto.log.
 
@@ -44,10 +44,21 @@ No se crearon tokens artificiales: el script cambia por SQL el rol de su propio 
 
 ## Límites conocidos
 
-- Flota y Rutas no tienen control de acceso propio. La lectura del código muestra que Solicitudes usa el vecinoId recibido sin contrastarlo con la identidad del token; el aislamiento entre vecinos queda pendiente de corregir y probar.
-- El caso de rol insuficiente probado devuelve 401, aunque el usuario ya está autenticado; debería distinguirse con 403. La prueba registra el comportamiento actual y no afirma que sea el contrato ideal.
+- Flota y Rutas aún no tienen control de acceso propio. El aislamiento entre vecinos en Solicitudes se corrigió y comprobó en la mejora posterior descrita al final.
+- La primera prueba detectó HTTP 401 para rol insuficiente. La corrección posterior conserva HTTP 403; también se comprobaron HTTP 400 para datos inválidos y HTTP 404 para recursos inexistentes.
 - Las referencias de camión y conductor de Rutas no se verifican contra los otros servicios.
-- No se probaron retiros fallidos, concurrencia, caídas de servicios ni recuperación ante una respuesta remota perdida. La reversión local comprobada no demuestra atomicidad entre las dos bases.
+- Se probaron después los retiros fallidos, con motivo obligatorio. No se probaron concurrencia, caídas de servicios ni recuperación ante una respuesta remota perdida. La reversión local comprobada no demuestra atomicidad entre las dos bases.
 - El flujo es una demostración backend local con datos ficticios; no acredita una solución lista para producción ni cobertura completa de reglas de negocio.
 
 No se publicó la copia ni se creó un repositorio remoto. La licencia de todo el trabajo compartido debe acordarse con sus integrantes; no se añadió una automáticamente.
+
+
+## Mejora de privacidad del 27/10/2026
+
+Autenticación incluye usuarioId en el JWT firmado, obtenido del usuario almacenado al iniciar sesión. Solicitudes verifica esa firma y compara el identificador con vecinoId al crear o consultar solicitudes. Un acceso a las solicitudes de otro vecino recibe HTTP 403. Las credenciales anteriores sin usuarioId reciben HTTP 401 en Solicitudes y requieren iniciar sesión de nuevo.
+
+Resultado del flujo ampliado: **22 comprobaciones aprobadas**. Incluye dos vecinos ficticios, rechazo de creación y consulta ajenas, consulta de la lista propia y rechazo de un JWT cuyo identificador fue alterado sin una firma válida. También terminaron los recorridos de retiro exitoso y fallido y las restricciones anteriores. Se ejecutaron además las dos pruebas contextLoads de los servicios modificados: sin fallos ni errores.
+
+La reconstrucción normal de Docker se interrumpió por descargas muy lentas. Para esta comprobación se empaquetaron los dos servicios con Maven y las dependencias locales disponibles, y se construyeron sus imágenes usando esos JAR y eclipse-temurin:21-jre. Los Dockerfile temporales están en /tmp; no se cambió la construcción del repositorio. Esta ejecución no acredita una nueva construcción completa de Maven dentro de Docker para estos cambios.
+
+No se modificó el README ni se publicaron estos cambios automáticamente.
