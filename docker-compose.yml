@@ -1,0 +1,136 @@
+name: rutalimpia-portafolio
+
+services:
+  mysql-solicitudes:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: rutalimpia_solicitudes_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - datos-solicitudes:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  solicitudes-ms:
+    build:
+      context: ./solicitudesMS
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-solicitudes:3306/rutalimpia_solicitudes_db?createDatabaseIfNotExist=true&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+      SPRING_SQL_INIT_MODE: always
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-solicitudes:
+        condition: service_healthy
+
+  mysql-autenticacion:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: rutalimpia_autenticacion_db
+    ports:
+      - "3308:3306"
+    volumes:
+      - datos-autenticacion:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  autenticacion-ms:
+    build:
+      context: ./autenticacionMS
+    ports:
+      - "8086:8086"
+    environment:
+      SERVER_PORT: "8086"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-autenticacion:3306/rutalimpia_autenticacion_db?createDatabaseIfNotExist=true&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_SQL_INIT_MODE: always
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-autenticacion:
+        condition: service_healthy
+  mysql-flota:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: rutalimpia_flota
+    ports:
+      - "3309:3306"
+    volumes:
+      - datos-flota:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  flota-ms:
+    build:
+      context: ./flotaMS
+    ports:
+      - "8085:8085"
+    environment:
+      SERVER_PORT: "8085"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-flota:3306/rutalimpia_flota?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+    depends_on:
+      mysql-flota:
+        condition: service_healthy
+
+  mysql-rutas:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: rutalimpia_rutas
+    ports:
+      - "3310:3306"
+    volumes:
+      - datos-rutas:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rutas-ms:
+    build:
+      context: ./rutasMS
+    ports:
+      - "8087:8087"
+    environment:
+      SERVER_PORT: "8087"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-rutas:3306/rutalimpia_rutas?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+      SOLICITUDES_URL: http://solicitudes-ms:8084
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-rutas:
+        condition: service_healthy
+      solicitudes-ms:
+        condition: service_started
+volumes:
+  datos-solicitudes:
+  datos-autenticacion:
+  datos-flota:
+  datos-rutas:

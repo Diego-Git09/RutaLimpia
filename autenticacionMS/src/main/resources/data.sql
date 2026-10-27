@@ -1,0 +1,2 @@
+INSERT IGNORE INTO rol (nombre_rol)
+VALUES ('VECINO'), ('CONDUCTOR');
